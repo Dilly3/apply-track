@@ -1,10 +1,15 @@
 variable "project_id" {
-  description = "Personal Google Cloud project ID"
+  description = "Google Cloud project ID"
   type        = string
 }
 
 variable "region" {
-  description = "Region for ApplyTrack resources"
+  description = "Deployment region"
   type        = string
   default     = "us-central1"
+}
+
+variable "image" {
+  description = "Full container image reference to deploy"
+  type        = string
 }

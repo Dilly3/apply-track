@@ -1,16 +1,3 @@
-resource "google_project_service" "cloud_run" {
-  project = var.project_id
-  service = "run.googleapis.com"
-
-  disable_on_destroy = false
-}
-
-resource "google_service_account" "applytrack" {
-  project      = var.project_id
-  account_id   = "applytrack-runtime"
-  display_name = "ApplyTrack runtime identity"
-}
-
 resource "google_cloud_run_v2_service" "applytrack" {
   project             = var.project_id
   name                = "applytrack"
@@ -18,7 +5,7 @@ resource "google_cloud_run_v2_service" "applytrack" {
   deletion_protection = false
 
   template {
-    service_account = google_service_account.applytrack.email
+    service_account = "applytrack-runtime@apply-track-028.iam.gserviceaccount.com"
 
     scaling {
       min_instance_count = 0
@@ -26,10 +13,15 @@ resource "google_cloud_run_v2_service" "applytrack" {
     }
 
     containers {
-      image = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.applytrack.repository_id}/applytrack:v1"
+      image = var.image
 
       ports {
         container_port = 8080
+      }
+
+      env {
+        name  = "GIN_MODE"
+        value = "release"
       }
 
       resources {
@@ -42,10 +34,6 @@ resource "google_cloud_run_v2_service" "applytrack" {
       }
     }
   }
-
-  depends_on = [
-    google_project_service.cloud_run
-  ]
 }
 
 resource "google_cloud_run_v2_service_iam_member" "public_access" {

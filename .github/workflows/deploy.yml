@@ -1,0 +1,109 @@
+name: Deploy ApplyTrack
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: applytrack-infrastructure
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    permissions:
+      contents: read
+      id-token: write
+
+    env:
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+      TF_VAR_project_id: apply-track-028
+      TF_VAR_region: us-central1
+      IMAGE_BASE: us-central1-docker.pkg.dev/apply-track-028/applytrack/applytrack
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        run: |
+          docker buildx build \
+            --platform linux/amd64 \
+            --load \
+            --tag "$IMAGE_BASE:$GITHUB_SHA" \
+            .
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: apply-track-028
+          workload_identity_provider: projects/189593513293/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: applytrack-github-deployer@apply-track-028.iam.gserviceaccount.com
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Configure Docker authentication
+        run: |
+          gcloud auth configure-docker \
+            us-central1-docker.pkg.dev \
+            --quiet
+
+      - name: Push image and select immutable reference
+        run: |
+          docker push "$IMAGE_BASE:$GITHUB_SHA"
+
+          IMAGE_DIGEST="$(gcloud artifacts docker images describe \
+            "$IMAGE_BASE:$GITHUB_SHA" \
+            --project=apply-track-028 \
+            --format='value(image_summary.digest)')"
+
+          if [[ "$IMAGE_DIGEST" != sha256:* ]]; then
+            echo "Failed to resolve image digest."
+            exit 1
+          fi
+
+          echo "TF_VAR_image=$IMAGE_BASE@$IMAGE_DIGEST" >> "$GITHUB_ENV"
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.10.5"
+          terraform_wrapper: false
+
+      - name: Initialize Terraform
+        working-directory: infra
+        run: terraform init -lockfile=readonly
+
+      - name: Check Terraform formatting
+        working-directory: infra
+        run: terraform fmt -check
+
+      - name: Validate Terraform
+        working-directory: infra
+        run: terraform validate
+
+      - name: Plan deployment
+        working-directory: infra
+        run: terraform plan -lock-timeout=120s -out=deploy.tfplan
+
+      - name: Apply deployment
+        working-directory: infra
+        run: terraform apply -lock-timeout=120s deploy.tfplan
+
+      - name: Verify health endpoint
+        working-directory: infra
+        run: |
+          SERVICE_URL="$(terraform output -raw service_url)"
+
+          curl --fail-with-body \
+            --retry 5 \
+            --retry-all-errors \
+            --retry-delay 5 \
+            "$SERVICE_URL/health"

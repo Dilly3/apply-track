@@ -6,3 +6,11 @@ applytrack
 .DS_Store
 
 gha-creds-*.json
+
+
+**/.terraform
+**/*.tfstate*
+**/*.tfplan
+**/*.tfvars
+**/*.tfvars.json
+gha-creds-*.json
