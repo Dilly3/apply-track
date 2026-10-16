@@ -4,3 +4,5 @@
 bin/
 applytrack
 .DS_Store
+
+gha-creds-*.json

@@ -17,3 +17,11 @@ docker image inspect \
   --project=apply-track-028 \
   --region=us-central1 \
   --limit=20
+
+  gcloud run services list \
+  --project=apply-track-028 \
+  --region=us-central1
+
+gcloud artifacts repositories list \
+  --project=apply-track-028 \
+  --location=us-central1

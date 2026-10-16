@@ -18,3 +18,15 @@
 *.tfplan
 *.tfvars
 crash.log
+
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+*.tfvars.json
+crash.log
+
+# Temporary Google authentication files
+gha-creds-*.json

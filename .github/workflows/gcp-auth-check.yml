@@ -1,0 +1,29 @@
+name: Check GCP authentication
+
+on:
+  workflow_dispatch:
+
+jobs:
+  authenticate:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: apply-track-028
+          workload_identity_provider: projects/189593513293/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: applytrack-github-deployer@apply-track-028.iam.gserviceaccount.com
+          token_format: access_token
+
+      - name: Confirm authentication
+        run: echo "Successfully obtained temporary GCP credentials."
